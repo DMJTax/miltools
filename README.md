@@ -6,7 +6,6 @@ For the easy creation, handling and classification of Multiple Instance
 Learning datasets.
 
 Dataset operations
-------------------
 : genmil           Generate MIL dataset from data and labels
 : gendatmil        Subsample bags from a MIL dataset
 : allpositivenegative  Check if you have valid MIL labels
