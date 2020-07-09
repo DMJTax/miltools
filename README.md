@@ -1,11 +1,14 @@
-# miltools
+# MILTools
 Multiple Instance Learning Toolbox for Python
 build on top of Prtools for Python (see https://github.com/DMJTax/prtools)
 
 For the easy creation, handling and classification of Multiple Instance
 Learning datasets.
 
+Some example files are provide to show how MILTools can be used
+
 Dataset operations
+------------------
 - genmil           Generate MIL dataset from data and labels
 - gendatmil        Subsample bags from a MIL dataset
 - allpositivenegative  Check if you have valid MIL labels
