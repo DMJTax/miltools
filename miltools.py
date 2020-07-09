@@ -11,6 +11,28 @@ import copy
 import matplotlib.pyplot as plt
 import prtools as pr
 
+def disp(a):
+    """
+    Nicer description of what is in a MIL dataset
+            mildisp(A)
+    """
+    bagid = a.gettargets('milbag')
+    if bagid is None:
+        # we don't have a mil dataset
+        print("Not a MIL dataset.")
+        return
+    N,dim = a.shape
+    if (len(a.name)>0):
+        out = "%s %d by %d MIL dataset "%(a.name,N,dim)
+    else:
+        out = "%d by %d MIL dataset "%(N,dim)
+    bags, baglab = getbags(a)
+    B = len(bags)
+    Ipos,Ineg = find_positive(baglab)
+    out += "with %d bags: [%d pos, %d neg]"%(B,len(Ipos),len(Ineg))
+    print(out)
+    return
+
 def genmillabels(n):
     """
     Generate MIL instance labels
@@ -305,8 +327,9 @@ def gendatmilg(n,np=1,d=7,dim=2):
         x = numpy.concatenate((x,numpy.random.randn(mm,dim)))
         lab.extend(pr.genlab([mm],['negative']))
         bagid.extend((i+n[0])*numpy.ones(mm))
-
-    return genmil(x,lab,bagid)
+    out = genmil(x,lab,bagid)
+    out.name = "Gaussian MI (np=%d)"%np
+    return(out)
 
 def milcombine(q,combrule='presence',pfeat=0):
     """
