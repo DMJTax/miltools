@@ -16,7 +16,7 @@ def disp(a):
     Nicer description of what is in a MIL dataset
             mildisp(A)
     """
-    bagid = a.gettargets('milbag')
+    bagid = a.gettargets('bagid')
     if bagid is None:
         # we don't have a mil dataset
         print("Not a MIL dataset.")
@@ -91,7 +91,7 @@ def setpositive(labels,classname):
         x.targets = out
         return x
 
-def genmil(x,classlab,baglab=None):
+def genmil(x,classlab=None,baglab=None):
     """
     Generate MIL dataset
            A = genmil(DAT,LAB,BAGLAB)
@@ -104,6 +104,22 @@ def genmil(x,classlab,baglab=None):
     and B-1 (where B is the number of bags in the dataset).
     """
     # torture the input until it fits a MIL dataset
+    if (isinstance(x,pr.prdataset)):
+        baglab = x.gettargets('bagid')
+        if baglab is None:
+            # it is a normal dataset, make each instance a bag:
+            baglab = numpy.arange(x.shape[0])
+            baglab = baglab[:,numpy.newaxis]
+            x.settargets('bagid',baglab)
+        return(x)
+    else:
+        if ((classlab is None) and (baglab is None)):
+            # we probably only got a data matrix:
+            x = pr.prdataset(x)
+            baglab = numpy.arange(x.shape[0])
+            baglab = baglab[:,numpy.newaxis]
+            x.settargets('bagid',baglab)
+            return(x)
     # make the labels column numpy vectors:
     if isinstance(classlab,list):
         classlab = numpy.array(classlab)
@@ -148,7 +164,7 @@ def genmil(x,classlab,baglab=None):
         if (isinstance(x,pr.prdataset)):
             x = +x
         a = pr.prdataset(x,classlab)
-        a.settargets('milbag',baglab)
+        a.settargets('bagid',baglab)
 
     return a
 
@@ -161,9 +177,9 @@ def getbags(x,returninst=False):
     Get the bags BAGS and their labels BAGLAB from MIL dataset X.
     If requested, also a list J of indices of the instances of each bag.
     """
-    baglab = x.gettargets('milbag')
+    baglab = x.gettargets('bagid')
     if baglab is None:
-        raise ValueError('This is not a MIL dataset (target "milbag" is not defined).')
+        raise ValueError('This is not a MIL dataset (target "bagid" is not defined).')
     bagll = numpy.unique(baglab)
     B = len(bagll)
     bags = []
@@ -174,8 +190,11 @@ def getbags(x,returninst=False):
         J[i] = I[0]
         xi = x[I[0],:]
         bags.append(+xi)
-        labs[i] = xi.targets[0][0] # copy the first label? We probably
-        # need something more smart here.
+        if isinstance(xi.targets[0],numpy.ndarray):
+            labs[i] = xi.targets[0][0] # copy the first label? We probably
+            # need something more smart here.
+        else:
+            labs[i] = xi.targets[0]
     labs = labs[:,numpy.newaxis]
     if returninst:
         return bags,labs,J
@@ -216,7 +235,7 @@ def gendatmil(x,frac):
     """
     if ((frac<0) or (frac>1)):
         raise ValueError('Requested fraction should be between 0 and 1.')
-    bagid = x.gettargets('milbag')
+    bagid = x.gettargets('bagid')
     if bagid is None:
         raise ValueError('No MIL dataset supplied.')
     ll = numpy.unique(bagid)
@@ -446,7 +465,8 @@ def miles(task=None,x=None,w=None):
         # we are applying to new data
         W = w.data
         # get MILES similarities
-        bags,baglab = getbags(x)
+        newx = genmil(x)
+        bags,baglab = getbags(newx)
         D = milesproxm(bags,W[0],w.hyperparam[0])
         pred = W[1](D)
         out = pr.prdataset(+pred,baglab)
