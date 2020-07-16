@@ -8,6 +8,7 @@ For example code, please look at
 """
 import numpy
 import copy
+import requests
 import matplotlib.pyplot as plt
 import prtools as pr
 
@@ -350,6 +351,47 @@ def gendatmilg(n,np=1,d=7,dim=2):
     out.name = "Gaussian MI (np=%d)"%np
     return(out)
 
+def gendatmusk(ver=0,getOnline=True):
+    N = 476
+    dim = 166
+    if (ver==0):
+        name = 'clean1'
+    else:
+        name = 'clean2'
+    if getOnline:
+        link = "https://archive.ics.uci.edu/ml/machine-learning-databases/musk/"
+        f = requests.get(link+name+"/"+name+".data.Z")
+        txt = f.text.splitlines()
+    else:
+        text_file = open(name+".data", "r")
+        txt = text_file.readlines()
+        text_file.close()
+    x = numpy.zeros((N,dim))
+    labx = numpy.empty(N,dtype=object)
+    bagid = numpy.empty(N,dtype=object)
+    i = 0
+    for line in txt:
+        nr = line.split(',')
+        bagid[i] = nr[0].rstrip()
+        for j in range(dim):
+            try:
+                x[i,j] = float(nr[j+2])
+            except:
+                x[i,j] = numpy.nan
+        # finally get the label:
+        thislab = nr[dim+2].rstrip()
+        try:
+            labx[i] = int(float(thislab))
+        except:
+            labx[i] = thislab
+        i += 1
+        if (i>=N):
+            break
+    labx = setpositive(labx,1)
+    a = genmil(x,labx,bagid)
+    a.name = 'Musk '+name
+    return a
+
 def milcombine(q,combrule='presence',pfeat=0):
     """
     Combine instance outputs to bag output
@@ -447,6 +489,8 @@ def miles(task=None,x=None,w=None):
         # just return the name, and hyperparameters
         if x is None:
             x = [5.0]  # arbitrary value for sigma
+        if not isinstance(x,list):
+            x = [x]
         return 'Simple MIL', x
     elif (task=='train'):
         # find the bag-instance similarities:
