@@ -202,6 +202,13 @@ def getbags(x,returninst=False):
     else:
         return bags,labs
 
+def nrofbags(x):
+    baglab = x.gettargets('bagid')
+    if baglab is None:
+        raise ValueError('This is not a MIL dataset (target "bagid" is not defined).')
+    bagll = numpy.unique(baglab)
+    return len(bagll)
+
 def ispositive(x):
     if isinstance(x,pr.prdataset):
         I = x.targets
