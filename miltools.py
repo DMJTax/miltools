@@ -352,6 +352,9 @@ def gendatmilg(n,np=1,d=7,dim=2):
     return(out)
 
 def gendatmusk(ver=0,getOnline=True):
+    """
+    Get the MUSK MIL dataset
+    """
     N = 476
     dim = 166
     if (ver==0):
@@ -434,6 +437,8 @@ def simplemil(task=None,x=None,w=None):
             x = ['presence', pr.ldc()]
         return 'Simple MIL', x
     elif (task=='train'):
+        if not isinstance(w[1],pr.prmapping):
+            raise ValueError('I expected an untrained PRmapping.')
         # we only need to train the mapping
         u = copy.deepcopy(w[1])
         out = x*u*pr.classc() # normalise outputs!
@@ -443,7 +448,10 @@ def simplemil(task=None,x=None,w=None):
     elif (task=='eval'):
         # we are applying to new data
         W = w.data
-        pred = x*W
+        # apply genmil to X, to make sure it is a valid MIL dataset (for
+        # instance, when you plot the classifier, plotc will supply a
+        # standard data matrix, not a MIL dataset)
+        pred = genmil(x)*W
         bags,baglab = getbags(pred)
         B = len(baglab)
         out = numpy.zeros((B,2))
@@ -491,7 +499,7 @@ def miles(task=None,x=None,w=None):
             x = [5.0]  # arbitrary value for sigma
         if not isinstance(x,list):
             x = [x]
-        return 'Simple MIL', x
+        return 'MILES', x
     elif (task=='train'):
         # find the bag-instance similarities:
         bags,baglab = getbags(x)
