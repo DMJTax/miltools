@@ -508,7 +508,7 @@ def milproxm(task=None,x=None,w=None):
                     d2 = numpy.min(D,axis=1)
                     out[i,j] = ((numpy.mean(d1)+numpy.mean(d2)))/2.
         # hausdorff distance:
-        elif (w.hyperparam[0]=='hausdorf') or \
+        elif (w.hyperparam[0]=='hausdorff') or \
                 (w.hyperparam[0]=='h'):
             out = numpy.zeros((B,nrR))
             for i in range(B):
@@ -518,10 +518,10 @@ def milproxm(task=None,x=None,w=None):
                     d2 = numpy.min(D,axis=1)
                     out[i,j] = numpy.max((numpy.max(d1),numpy.max(d2)))
         else:
-            print('This proximity is not defined.',w.hyperparam[0])
+            print('Proximity "%s" is not defined.'%w.hyperparam[0])
 
-        out = pr.prdataset(out,baglab)
-        return out
+        # return a MIL dataset with bag labels
+        return pr.prdataset(out,baglab)
     else:
         raise ValueError("Task '%s' is *not* defined for MILproxm."%task)
 
@@ -568,8 +568,8 @@ def simplemil(task=None,x=None,w=None):
         for i in range(B):
             out[i,0] = milcombine(bags[i],'presence',pfeat)
             out[i,1] = 1. - out[i,0]
-        out = pr.prdataset(out,baglab)
-        return out
+        # return a MIL dataset with bag labels
+        return pr.prdataset(out,baglab)
     else:
         raise ValueError("Task '%s' is *not* defined for SimpleMIL."%task)
 
@@ -613,13 +613,13 @@ def miles(task=None,x=None,w=None):
         bags,baglab = getbags(x)
         inst = +x
         D = milesproxm(bags,inst,w[0])
-        # we train a sparse classifier on MILES similarities
+        # we train a sparse Winnow classifier on MILES similarities
         # (learning rate 0.1, nriters 100)
+        # This classifier requires -1/+1 labels
         newlab = ispositive(baglab)*2. - 1.
         mdata = pr.prdataset(D,newlab)
         w = pr.winnowc(mdata,[0.1,100])
         # maybe find the non-zero weights??
-        #return (inst,w),w.targets
         return (inst,w),['negative','positive']
     elif (task=='eval'):
         # we are applying to new data
@@ -629,9 +629,68 @@ def miles(task=None,x=None,w=None):
         bags,baglab = getbags(newx)
         D = milesproxm(bags,W[0],w.hyperparam[0])
         pred = W[1](D)
-        out = pr.prdataset(+pred,baglab)
-        return out
+        # return a MIL dataset with bag labels
+        return pr.prdataset(+pred,baglab)
     else:
         raise ValueError("Task '%s' is *not* defined for MILES."%task)
+
+def milknnc(task=None,x=None,w=None):
+    """
+    MILKNNC MIL nearest neighbor classifier
+
+       W = MILKNNC(A,(K,Dtype,Dpar))
+
+    Train a K-nearest neighbor on MIL dataset A. The distances between
+    the bags in A are defined by Dtype, the proximity type. For the
+    possible definitions of the distance, please look at MILPROXM.
+    Defaults: K=1, with Dtype='hausdorff'.
+
+    """
+    if not isinstance(task,str):
+        out = pr.prmapping(milknnc,task,x)
+        return out
+    if (task=='init'):
+        # just return the name, and hyperparameters
+        if isinstance(x,int):
+            x = [x]
+        if x is None:
+            x = [1,'hausdorff']
+        if (len(x)<2):
+            x.append('hausdorff')
+        return 'MILknnc', x
+    elif (task=='train'):
+        # we need to store the trained proximity mapping:
+        if (len(w)>2): # the proximity mapping has hyperparams
+            wprox = milproxm(x,[w[1],w[2]])
+        else:
+            wprox = milproxm(x,[w[1]])
+        # and the bag labels:
+        bags,baglab = getbags(x)
+        baglab = ispositive(baglab)*1 # set positive labs to 1.
+        return [wprox,baglab], ['negative','positive']
+    elif (task=='eval'):
+        # we are applying to new data
+        wprox,lab = w.data
+        k = w.hyperparam[0]
+        # apply genmil to X, to make sure it is a valid MIL dataset (for
+        # instance, when you plot the classifier, plotc will supply a
+        # standard data matrix, not a MIL dataset)
+        x = genmil(x)
+        B = nrofbags(x)
+        bags,baglab = getbags(x)
+        out = numpy.zeros((B,2))
+        # compute all distances:
+        D = wprox(x)
+        # find the closest:
+        I = numpy.argsort(+D,axis=1)
+        for i in range (B):
+            thislab = lab[I[i,:k]]
+            thislab = numpy.ndarray.flatten(thislab)
+            out[i,:] = numpy.bincount(thislab,minlength=2)/k
+        # return a MIL dataset with bag labels
+        return pr.prdataset(out,baglab)
+    else:
+        raise ValueError("Task '%s' is *not* defined for MILproxm."%task)
+
 
 
