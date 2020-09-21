@@ -12,7 +12,7 @@ print(pred)
 # predict the labels:
 lab = pred*pr.labeld()
 print(lab)
-# and the error becomes:
+# and the training error becomes:
 err = pred*pr.testc()
-print(err)
+print('Training error is ',err)
 

@@ -311,9 +311,25 @@ def milcrossval(a,I=10):
         return x,z,I
 
 
+
 def gendatmilg(n,np=1,d=7,dim=2):
     """
-    Generate a Gaussian MIL dataset
+    GENDATMILG Generate Gaussian MIL problem
+
+         X = GENDATMILG([N1 N2],NP,D,DIM)
+
+    Generate an artificial multi-instance learning problem.  For the N1
+    positive bags NP(1) instances are drawn from the positive concept
+    Gaussian centered around (D,1), and a random set of instances is drawn
+    from a background Gaussian distribution round (0,0). This number is
+    between 1 and 10-NP.  For the N2 negative bags, NP(2) instances are
+    drawn from the positive concept, and the rest is drawn from the
+    background distribution. When NP(2) is not defined, NP(2)=0.
+
+    When DIM>2 is defined, extra features are added such that the total
+    number of features is DIM. The added features all have an identical
+    unit-variance Gaussian distribution.
+
     """
     if (len(n)<2):
         n = pr.genclass(n,[0.6,0.4])
@@ -417,6 +433,91 @@ def milcombine(q,combrule='presence',pfeat=0):
     else:
         raise ValueError('Unknown combining rule.')
     return p
+
+def milproxm(task=None,x=None,w=None):
+    """
+    MILPROXM MIL proximity mapping
+
+       W = MILPROXM(A,(KTYPE,KPAR));
+
+    Definition of a proximity mapping between bags in a Multi-instance
+    Learning problem using proximity KTYPE with parameter KPAR. The
+    dataset A has to be MIL-dataset.
+
+    The proximity is defined by the type KTYPE (and potentially its
+    parameter KPAR):
+      'minmin'       | 'min':Minimum of minimum distances between inst. 
+      'summin'       | 'sm': Sum of minimum distances between inst. 
+      'meanmin'      | 'mm': Mean of minimum distances between inst. 
+      'meanmean'     | 'mean': Mean of mean distances between inst. 
+      'mahalanobis'  | 'm':  Mahalanobis distance between bags
+      'hausdorff'    | 'h':  (maximum) Hausdorff distance between bags
+
+    """
+    if not isinstance(task,str):
+        out = pr.prmapping(milproxm,task,x)
+        return out
+    if (task=='init'):
+        # just return the name, and hyperparameters
+        if isinstance(x,str):
+            x = [x]
+        if x is None:
+            x = ['hausdorff']
+        return 'MILproxm', x
+    elif (task=='train'):
+        # we only need to store the training bags:
+        bags,baglab = getbags(x)
+        nrR = len(bags)
+        return [bags], range(nrR)
+    elif (task=='eval'):
+        # we are applying to new data
+        W = w.data
+        bagsR = W[0]
+        nrR = len(bagsR) # number of training/representation bags
+
+        # apply genmil to X, to make sure it is a valid MIL dataset (for
+        # instance, when you plot the classifier, plotc will supply a
+        # standard data matrix, not a MIL dataset)
+        x = genmil(x)
+        bags,baglab = getbags(x)
+        B = len(baglab)
+
+        # min-min distance:
+        if (w.hyperparam[0]=='minmin') or \
+                (w.hyperparam[0]=='min'):
+            out = numpy.zeros((B,nrR))
+            for i in range(B):
+                for j in range(nrR):
+                    D = pr.sqeucldist(bags[i],bagsR[j])
+                    out[i,j] = numpy.min(D)
+        # mean-min distance:
+        elif (w.hyperparam[0]=='meanmin') or \
+                (w.hyperparam[0]=='mm'):
+            out = numpy.zeros((B,nrR))
+            for i in range(B):
+                for j in range(nrR):
+                    D = pr.sqeucldist(bags[i],bagsR[j])
+                    d1 = numpy.min(D,axis=0)
+                    d2 = numpy.min(D,axis=1)
+                    out[i,j] = ((numpy.mean(d1)+numpy.mean(d2)))/2.
+        # hausdorff distance:
+        elif (w.hyperparam[0]=='hausdorf') or \
+                (w.hyperparam[0]=='h'):
+            out = numpy.zeros((B,nrR))
+            for i in range(B):
+                for j in range(nrR):
+                    D = pr.sqeucldist(bags[i],bagsR[j])
+                    d1 = numpy.min(D,axis=0)
+                    d2 = numpy.min(D,axis=1)
+                    out[i,j] = numpy.max((numpy.max(d1),numpy.max(d2)))
+        else:
+            print('This proximity is not defined.',w.hyperparam[0])
+
+        out = pr.prdataset(out,baglab)
+        return out
+    else:
+        raise ValueError("Task '%s' is *not* defined for MILproxm."%task)
+
 
 def simplemil(task=None,x=None,w=None):
     """
